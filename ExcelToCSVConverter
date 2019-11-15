@@ -1,0 +1,63 @@
+Option Explicit
+
+Sub SelectMultipleFiles()
+    
+    Dim fDialog As FileDialog
+    
+    Dim sFileNames() As String
+    
+    Set fDialog = Application.FileDialog(msoFileDialogFilePicker)
+    With fDialog
+        .AllowMultiSelect = True
+        .Title = "Please select the files"
+        .Filters.Clear
+        .Filters.Add "All supported files", "*.xlsx;*.xls"
+        .Filters.Add "Excel 2010", "*.xlsx"
+        .Filters.Add "Exclel 97-200", "*.xls"
+
+        If .Show = True Then
+            Dim fPath As Variant
+            For Each fPath In .SelectedItems
+
+                ' Use 'fPath' to do whatever you want.
+                Debug.Print fPath
+                
+                Call SaveWorksheetsAsCsv(fPath)
+                
+            Next
+        End If
+    End With
+    
+    MsgBox "Done"
+End Sub
+
+Public Sub SaveWorksheetsAsCsv(paramFilePath As Variant)
+
+    Dim WS As Excel.Worksheet
+    
+    Dim wb As Excel.Workbook
+    
+    Set wb = Workbooks.Open(paramFilePath, False, True)
+    
+    Dim SaveToDirectory As String
+    
+    SaveToDirectory = "D:\Office\ExcelToCSVConverter\Testing\"
+    
+    For Each WS In wb.Worksheets
+        
+        Application.DisplayAlerts = False
+        
+        WS.SaveAs SaveToDirectory & WS.Name, xlCSV, Null, Null, Null, False
+        
+        Application.DisplayAlerts = True
+        
+        Set WS = Nothing
+        
+    Next
+    
+    wb.Close (False)
+    
+    Set wb = Nothing
+    Set WS = Nothing
+    
+End Sub
