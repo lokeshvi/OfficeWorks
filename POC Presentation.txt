@@ -1,0 +1,57 @@
+Before we move on to the solution. Below are some points which will help us understand the solution.
+
+1st. We are using the TST_OCUR_NM in the standard way. Which means it will be monthly.
+2st. But we can change the execution frequency by Configur. So, test will be executed on Weekly basis.
+3rd. When  the flow runs in Prod-E environment, the hive table is checked if it already has a partition based on the tst_ocur_nm value. If the tst_ocur_nm value/partition already exists, then the  entire partitioned data will be removed from the hive table archived to a archive table. 
+Please note : this is done before the flow execution starts in Prod-E
+4th. Since this is a weekly execution, to differentiate the data based on the execution, we created a column known as weekly_tst_ocur_nm. This stores which week data we have. For example, it is executed on 
+4th. Using Trifacta recipe we created a new column called Weekly_TST_OCUR_NM which stores which week of execution. For example the test is being executed on 02/24/2020 then it will be 2020-2-week-4. If time permits then we will talk on this more.
+5th. This test will follow all the standards. The usage of TST_OCUR_NM, having append in Hive and having replace in hdfs, the namming standards and everything
+
+Now coming to the proposed execution of the test.
+
+For the 1st week/execution.
+We will exeucte type1 population flow which takes in LZ file and stores the output in the population csv and population hive table respectively.
+	1. FLW_22459_POPULATION
+
+From the 2nd week/Execution
+Once the 1st execution is successful, then we will be required to update the cli. From now, we will have 2 flows to be executed in a sequential order.
+	1. FLW_22459_SUPPLIMENTAL
+	2. FLW_22459_POPULATION(UPDATED VERSION)
+	
+First we will discuss about the flows and you will have the answer to why are we inducting 2 flows after the 1st execution
+If we look at the Suppliment flow, the suppliment flow, datasource is trying to exectract data from the already created population hive table it self. Note : it will only pull out records of the current executed tst_ocur_nm only.
+Once it pulls out, then it directly deposits that data into the supplimental table.
+Hope it is clear until here
+
+FLW_22459_POPULATION, Secondly, if we see in the flow, you will notice a extra datasource. this extra datasource pulls out information from the supplimental hive table only.(based on current tst_ocur_nm only)
+
+So,
+Now these are the events which occur in the 2nd execution, 
+	First Suppliment flow, which means the archive script runs first, in the suppliment table it will check for any partitions. But since the table itself is not available, nothing happens. 
+	Now the flow runs, since the population table is already created and has data with the current tst_ocur_nm, this data is extracted and published into the hive and hdfs destinations.
+	
+	Secondly Population Flow, which means the archive script runs first, in the population table it will check for any partitions based on the current tst_ocur_nm. Since the population table is already created from the 1st weeks exection and contains february 2020 as one of the partition, the archive script will remove the data from population hive table. So, right now, the population table is empty, it does not have the 1st execution data also.
+	Now the population flow will run. If you observe in the diagram, the week 2 data is being picked up from the LZ and required business logic is applied. In the below, we are now extracting data from the suppliment hive table. which essentialy offers us the 1st week data copy. Finaly, the 2nd week data and the 1st week data is being unioned and published back into the Population Hive table
+	
+Now, population hive table contains both 1st week data(intact) and also contains the 2nd week data.
+
+--show a diagram
+
+
+From the 3rd week/Execution
+
+For the 3rd week execution, 
+
+first the supplimental flow needs to run.
+
+	So the archive script will run on the current tst_ocur_nm partition. Since suppliment hive table contains a partition with the value February 2020, it will remove the data of February 2020, resulting the Suppliment hive table to be empty.
+	Now the flow execution is kick started, From the population hive table current tst_ocur_nm data is extracted and published into the supplimental hive table. So, right now supplimental hive table contains Week 1 and week 2 copy of data
+	
+For the Population flow run
+
+	So archive script will run to check if thre arre any partitions available based on current tst_ocur_nm. Since Feb 2020 is already available the data is remvoed fromt the table. Which means week 1 and week 2 data is not available in the population hive table
+	NOw the population flow will start to run, since this is a week 3 execution, week 3 data is extracted from the LZ file and the week1 and week2 copy data is extracted from the supplimental hive table. In the end the week 3 data is unioned with the week 1 and week 2 copy data. Upon which the data is published into the population table. Now in the population table we have week1 week2 and week3 data as required.
+	
+
+	
